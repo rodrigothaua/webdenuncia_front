@@ -9,7 +9,9 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="h-6 w-6" />
-            <h1 className="text-xl font-bold">Web Denúncia - Rondônia</h1>
+            <a href="/">
+              <h1 className="text-xl font-bold">Web Denúncia - Rondônia</h1>
+            </a>
           </div>
         </div>
       </header>

@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Shield, FileAudio } from "lucide-react"
+import { Shield, FileAudio, ImageIcon } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { salvarDenuncia } from "../actions/denuncia-actions"
 
 interface FormData {
   // Ocorrência
@@ -42,6 +43,7 @@ export default function Resumo() {
   const router = useRouter()
   const [formData, setFormData] = useState<FormData | null>(null)
   const [files, setFiles] = useState<FileData[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     // Recuperar os dados do formulário do localStorage
@@ -60,24 +62,34 @@ export default function Resumo() {
     }
   }, [router])
 
-  const handleSubmit = () => {
-    // Gerar um protocolo aleatório
-    const protocolo = Math.floor(100000 + Math.random() * 900000).toString()
+  const handleSubmit = async () => {
+    if (!formData) return
 
-    // Armazenar o protocolo no localStorage
-    localStorage.setItem("protocoloDenuncia", protocolo)
+    setIsSubmitting(true)
 
-    // Aqui seria o lugar para enviar os dados para o banco de dados
-    // const dadosParaEnviar = {
-    //   ...formData,
-    //   protocolo,
-    //   dataEnvio: new Date().toISOString(),
-    //   arquivos: files
-    // }
-    // enviarParaBancoDeDados(dadosParaEnviar)
+    try {
+      // Enviar os dados para o servidor usando a Server Action
+      const result = await salvarDenuncia(formData, files)
 
-    // Redirecionar para a página de confirmação
-    router.push("/confirmacao")
+      if (result.success) {
+        // Armazenar o protocolo no localStorage para consulta posterior
+        localStorage.setItem("protocoloDenuncia", result.protocolo)
+
+        // Limpar os dados do formulário
+        localStorage.removeItem("denunciaFormData")
+        localStorage.removeItem("denunciaFiles")
+
+        // Redirecionar para a página de confirmação
+        router.push("/confirmacao")
+      } else {
+        alert("Erro ao enviar denúncia. Por favor, tente novamente.")
+      }
+    } catch (error) {
+      console.error("Erro ao enviar denúncia:", error)
+      alert("Erro ao enviar denúncia. Por favor, tente novamente.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!formData) {
@@ -148,7 +160,7 @@ export default function Resumo() {
                                 className="w-full h-full object-cover"
                               />
                               <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 flex items-center">
-                                <Image className="h-3 w-3 mr-1" />
+                                <ImageIcon className="h-3 w-3 mr-1" />
                                 <span className="truncate">Foto</span>
                               </div>
                             </div>
@@ -226,8 +238,8 @@ export default function Resumo() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800">
-              Finalizar Denúncia
+            <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800" disabled={isSubmitting}>
+              {isSubmitting ? "Enviando..." : "Finalizar Denúncia"}
             </Button>
           </div>
         </div>
