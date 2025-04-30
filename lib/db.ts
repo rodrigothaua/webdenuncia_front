@@ -1,5 +1,4 @@
 import mysql from "serverless-mysql"
-import { logger } from "./logger"
 
 const db = mysql({
   config: {
@@ -8,24 +7,41 @@ const db = mysql({
     database: process.env.MYSQL_DATABASE,
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
+    // Adicionar configurações para melhorar a estabilidade da conexão
+    connectTimeout: 10000, // 10 segundos
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
   },
 })
 
-// Modificar a função query para usar o logger
 export async function query(q: string, values: any[] = []) {
   try {
-    logger.debug("Executando query", { query: q })
+    console.log(`Executando query: ${q}`)
     const results = await db.query(q, values)
     await db.end()
     return results
   } catch (error) {
-    logger.error("Database query error", { error, query: q })
+    console.error("Erro na consulta ao banco de dados:", error)
+
     // Tentar reconectar em caso de erro de conexão
-    if ((error as any).code === "PROTOCOL_CONNECTION_LOST") {
-      logger.info("Tentando reconectar ao banco de dados...")
-      await db.connect()
-      return await db.query(q, values)
+    if (
+      (error as any).code === "PROTOCOL_CONNECTION_LOST" ||
+      (error as any).code === "ECONNREFUSED" ||
+      (error as any).code === "ER_ACCESS_DENIED_ERROR"
+    ) {
+      console.log("Tentando reconectar ao banco de dados...")
+      try {
+        await db.connect()
+        const results = await db.query(q, values)
+        await db.end()
+        return results
+      } catch (reconnectError) {
+        console.error("Falha na reconexão:", reconnectError)
+        throw new Error(`Falha na reconexão com o banco de dados: ${(reconnectError as Error).message}`)
+      }
     }
+
     throw new Error(`Erro ao executar consulta no banco de dados: ${(error as Error).message}`)
   }
 }

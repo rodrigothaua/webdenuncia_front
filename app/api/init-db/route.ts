@@ -3,11 +3,9 @@ import db from "@/lib/db"
 
 export async function GET() {
   try {
-    // Criar o banco de dados se não existir
-    await db.query(`CREATE DATABASE IF NOT EXISTS ${process.env.MYSQL_DATABASE}`)
-
-    // Usar o banco de dados
-    await db.query(`USE ${process.env.MYSQL_DATABASE}`)
+    // Usar o banco de dados existente
+    await db.query(`USE webdenuncia_db`)
+    console.log("Usando banco de dados webdenuncia_db")
 
     // Criar tabela de denúncias
     await db.query(`
@@ -35,6 +33,7 @@ export async function GET() {
         data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `)
+    console.log("Tabela denuncias criada ou já existente")
 
     // Criar tabela de arquivos
     await db.query(`
@@ -49,16 +48,18 @@ export async function GET() {
         FOREIGN KEY (denuncia_id) REFERENCES denuncias(id) ON DELETE CASCADE
       )
     `)
+    console.log("Tabela arquivos criada ou já existente")
 
     // Criar índices
     await db.query(`CREATE INDEX IF NOT EXISTS idx_denuncias_protocolo ON denuncias(protocolo)`)
     await db.query(`CREATE INDEX IF NOT EXISTS idx_arquivos_denuncia ON arquivos(denuncia_id)`)
+    console.log("Índices criados ou já existentes")
 
     await db.end()
 
     return NextResponse.json({
       success: true,
-      message: "Banco de dados inicializado com sucesso!",
+      message: "Tabelas criadas com sucesso no banco de dados webdenuncia_db!",
     })
   } catch (error) {
     console.error("Erro ao inicializar o banco de dados:", error)
