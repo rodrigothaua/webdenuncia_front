@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Shield, FileAudio, ImageIcon } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { salvarDenuncia } from "../actions/denuncia-actions"
+import { salvarDenuncia, type SalvarDenunciaResult } from "../actions/denuncia-actions"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 interface FormData {
   // Ocorrência
@@ -44,6 +46,7 @@ export default function Resumo() {
   const [formData, setFormData] = useState<FormData | null>(null)
   const [files, setFiles] = useState<FileData[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Recuperar os dados do formulário do localStorage
@@ -66,12 +69,15 @@ export default function Resumo() {
     if (!formData) return
 
     setIsSubmitting(true)
+    setError(null)
 
     try {
+      console.log("Enviando denúncia para o servidor...")
       // Enviar os dados para o servidor usando a Server Action
-      const result = await salvarDenuncia(formData, files)
+      const result: SalvarDenunciaResult = await salvarDenuncia(formData, files)
 
-      if (result.success) {
+      if (result.success && result.protocolo) {
+        console.log("Denúncia enviada com sucesso:", result)
         // Armazenar o protocolo no localStorage para consulta posterior
         localStorage.setItem("protocoloDenuncia", result.protocolo)
 
@@ -82,11 +88,12 @@ export default function Resumo() {
         // Redirecionar para a página de confirmação
         router.push("/confirmacao")
       } else {
-        alert("Erro ao enviar denúncia. Por favor, tente novamente.")
+        console.error("Erro retornado pelo servidor:", result.error)
+        setError(result.error || "Erro ao enviar denúncia. Por favor, tente novamente.")
       }
     } catch (error) {
       console.error("Erro ao enviar denúncia:", error)
-      alert("Erro ao enviar denúncia. Por favor, tente novamente.")
+      setError(`Erro ao enviar denúncia: ${(error as Error).message}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -110,6 +117,14 @@ export default function Resumo() {
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold mb-6">Resumo da Denúncia</h1>
+
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erro</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-6">
             <Card>
