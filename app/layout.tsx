@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Web Denúncia',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'Web Denúncia Anônima',
+  description: 'Aplicação de denúncia anônima criada front-end com Next.js e Back-end com Laravel',
+  generator: 'Rodrigo thauã',
 }
 
 export default function RootLayout({
