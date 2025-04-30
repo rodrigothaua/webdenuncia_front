@@ -31,67 +31,109 @@ interface FileData {
   type: "image" | "audio"
 }
 
+// Tipo para o resultado da função salvarDenuncia
+export interface SalvarDenunciaResult {
+  success: boolean
+  protocolo?: string
+  error?: string
+}
+
 // Função para gerar um protocolo único
 function gerarProtocolo() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
 // Função para salvar uma denúncia no banco de dados
-export async function salvarDenuncia(formData: DenunciaFormData, files: FileData[]) {
+export async function salvarDenuncia(formData: DenunciaFormData, files: FileData[]): Promise<SalvarDenunciaResult> {
   try {
-    // Gerar protocolo único
-    const protocolo = gerarProtocolo()
+    console.log("Iniciando salvamento da denúncia")
 
-    // Inserir a denúncia no banco de dados
-    const result = await query(
-      `INSERT INTO denuncias 
-      (protocolo, local, cep, logradouro, numero, complemento, bairro, cidade, uf, detalhes, 
-       nome_denunciado, apelido_denunciado, idade_denunciado, caracteristicas_denunciado,
-       nome_vitima, idade_vitima, relacionamento_vitima)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        protocolo,
-        formData.local,
-        formData.cep,
-        formData.logradouro,
-        formData.numero,
-        formData.complemento,
-        formData.bairro,
-        formData.cidade,
-        formData.uf,
-        formData.detalhes,
-        formData.nomeDenunciado,
-        formData.apelidoDenunciado,
-        formData.idadeDenunciado,
-        formData.caracteristicasDenunciado,
-        formData.nomeVitima,
-        formData.idadeVitima,
-        formData.relacionamentoVitima,
-      ],
-    )
-
-    // Obter o ID da denúncia inserida
-    const denunciaId = (result as any).insertId
-
-    // Inserir os arquivos, se houver
-    if (files && files.length > 0) {
-      for (const file of files) {
-        // Extrair o conteúdo binário da string base64
-        const base64Data = file.data.split(",")[1]
-        const buffer = Buffer.from(base64Data, "base64")
-
-        await query(
-          `INSERT INTO arquivos (denuncia_id, nome_arquivo, tipo, mime_type, conteudo)
-          VALUES (?, ?, ?, ?, ?)`,
-          [denunciaId, file.name, file.type, file.mimeType, buffer],
-        )
+    // Verificar conexão com o banco antes de prosseguir
+    try {
+      await query("SELECT 1")
+      console.log("Conexão com o banco de dados verificada")
+    } catch (connError) {
+      console.error("Erro na verificação de conexão:", connError)
+      return {
+        success: false,
+        error: `Erro de conexão com o banco de dados: ${(connError as Error).message}`,
       }
     }
 
-    return { success: true, protocolo }
+    // Gerar protocolo único
+    const protocolo = gerarProtocolo()
+    console.log(`Protocolo gerado: ${protocolo}`)
+
+    // Inserir a denúncia no banco de dados
+    try {
+      const result = await query(
+        `INSERT INTO denuncias 
+        (protocolo, local, cep, logradouro, numero, complemento, bairro, cidade, uf, detalhes, 
+         nome_denunciado, apelido_denunciado, idade_denunciado, caracteristicas_denunciado,
+         nome_vitima, idade_vitima, relacionamento_vitima)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          protocolo,
+          formData.local,
+          formData.cep,
+          formData.logradouro,
+          formData.numero,
+          formData.complemento,
+          formData.bairro,
+          formData.cidade,
+          formData.uf,
+          formData.detalhes,
+          formData.nomeDenunciado,
+          formData.apelidoDenunciado,
+          formData.idadeDenunciado,
+          formData.caracteristicasDenunciado,
+          formData.nomeVitima,
+          formData.idadeVitima,
+          formData.relacionamentoVitima,
+        ],
+      )
+      console.log("Denúncia inserida com sucesso:", result)
+
+      // Obter o ID da denúncia inserida
+      const denunciaId = (result as any).insertId
+      console.log(`ID da denúncia: ${denunciaId}`)
+
+      // Inserir os arquivos, se houver
+      if (files && files.length > 0) {
+        console.log(`Processando ${files.length} arquivos`)
+        for (const file of files) {
+          try {
+            // Extrair o conteúdo binário da string base64
+            const base64Data = file.data.split(",")[1]
+            const buffer = Buffer.from(base64Data, "base64")
+
+            await query(
+              `INSERT INTO arquivos (denuncia_id, nome_arquivo, tipo, mime_type, conteudo)
+              VALUES (?, ?, ?, ?, ?)`,
+              [denunciaId, file.name, file.type, file.mimeType, buffer],
+            )
+            console.log(`Arquivo ${file.name} inserido com sucesso`)
+          } catch (fileError) {
+            console.error(`Erro ao inserir arquivo ${file.name}:`, fileError)
+            // Continuar mesmo se um arquivo falhar
+          }
+        }
+      }
+
+      return { success: true, protocolo }
+    } catch (insertError) {
+      console.error("Erro ao inserir denúncia:", insertError)
+      return {
+        success: false,
+        error: `Erro ao inserir denúncia: ${(insertError as Error).message}`,
+      }
+    }
   } catch (error) {
-    console.error("Erro ao salvar denúncia:", error)
-    return { success: false, error: "Erro ao salvar denúncia" }
+    console.error("Erro geral ao salvar denúncia:", error)
+    return {
+      success: false,
+      error: `Erro ao processar denúncia: ${(error as Error).message}`,
+    }
   }
 }
 
@@ -120,7 +162,7 @@ export async function buscarDenuncia(protocolo: string) {
     }
   } catch (error) {
     console.error("Erro ao buscar denúncia:", error)
-    return { success: false, error: "Erro ao buscar denúncia" }
+    return { success: false, error: `Erro ao buscar denúncia: ${(error as Error).message}` }
   }
 }
 
@@ -148,6 +190,6 @@ export async function buscarArquivo(arquivoId: number) {
     }
   } catch (error) {
     console.error("Erro ao buscar arquivo:", error)
-    return { success: false, error: "Erro ao buscar arquivo" }
+    return { success: false, error: `Erro ao buscar arquivo: ${(error as Error).message}` }
   }
 }
